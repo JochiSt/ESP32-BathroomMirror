@@ -9,14 +9,11 @@
 #include <WiFiUdp.h>
 #include <ArduinoOTA.h>
 
-const char* ssid = mySSID;
-const char* password = myPASSWORD;
-
 #if defined(ESP32_RTOS) && defined(ESP32)
 void taskOne( void * parameter )
 {
   ArduinoOTA.handle();
-  delay(3500);
+  delay(1000);
 }
 #endif
 
@@ -28,15 +25,7 @@ void setupOTA(const char* nameprefix) {
   snprintf(fullhostname, maxlen, "%s-%02x%02x%02x", nameprefix, mac[3], mac[4], mac[5]);
   ArduinoOTA.setHostname(fullhostname);
   
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
-  while (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    Serial.println("Connection Failed! Rebooting...");
-    delay(5000);
-    ESP.restart();
-  }
-
-  // Port defaults to 3232
+    // Port defaults to 3232
   // ArduinoOTA.setPort(3232);
 
   // No authentication by default
