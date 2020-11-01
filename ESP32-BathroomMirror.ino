@@ -2,6 +2,12 @@
 #include <ESPmDNS.h>
 #include <WiFiUdp.h>
 
+// use WiFiAutoSelector from https://gist.github.com/AndiSHFR/e9c46890af7cddff6cb5ea7d4f1c5c49
+#include "WiFiAutoSelector.h"
+
+#define WIFI_CONNECT_TIMEOUT 8000
+WiFiAutoSelector wifiAutoSelector(WIFI_CONNECT_TIMEOUT);
+
 // install NeoPixelBus by Makuna
 #include <NeoPixelBus.h>
 #include <NeoPixelBrightnessBus.h>
@@ -150,28 +156,41 @@ void setup() {
   pinMode(PIN_BUTTON_3, INPUT);
   attachInterrupt(digitalPinToInterrupt(PIN_BUTTON_3), button_3, FALLING);
 
+
+  Serial.println("LED Pixel...");
+  // this resets all the neopixels to an off state
+  strip.Begin();
+
+  // first set LED Pixel and do network startup later
+  for ( int i = 0; i < PixelCount; i++) {
+    strip.SetPixelColor(i, white);
+  }
+
+  strip.SetBrightness(brightness);
+
+  strip.Show();
+
   Serial.println("WiFi...");
+
+  wifiAutoSelector.add(ssid , password );
+  wifiAutoSelector.add(ssid2, password2);
 
   WiFi.mode(WIFI_STA);
 
-  Serial.print("Connecting to ");
-  Serial.println(ssid);
-  WiFi.begin(ssid, password);
-
-  if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-    Serial.println("Connection Failed!");
-    digitalWrite(PIN_LED, LOW);
-
-    Serial.print("Connecting to ");
-    Serial.println(ssid2);
-    WiFi.begin(ssid2, password2);
-
-    if (WiFi.waitForConnectResult() != WL_CONNECTED) {
-      Serial.println("Connection Failed!");
+  Serial.print("Connecting...");
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.print("Connecting wifi ");
+    if (-1 < wifiAutoSelector.scanAndConnect()) {
+      int connectedIndex = wifiAutoSelector.getConnectedIndex();
+      Serial.print("to '");
+      Serial.print(wifiAutoSelector.getSSID(connectedIndex));
+      Serial.println("'. Done.");
+    } else {
+      Serial.println("failed.");
     }
   }
-  digitalWrite(PIN_LED, HIGH);
 
+  digitalWrite(PIN_LED, HIGH);
 
   Serial.println("OTA...");
 
@@ -205,19 +224,12 @@ void setup() {
   artnet.begin();
   artnet.subscribe(1, ArtNetCallback_Universe_1);
 
-  // this resets all the neopixels to an off state
-  strip.Begin();
+
 
   Serial.println();
   Serial.println("Running...");
 
-  for ( int i = 0; i < PixelCount; i++) {
-    strip.SetPixelColor(i, white);
-  }
 
-  strip.SetBrightness(brightness);
-
-  strip.Show();
 
   CTRLmode = MANUAL;
   ArtNet_NoRX = 127;  // we have not received ArtNet
@@ -245,15 +257,31 @@ void handleTimer() {
 
   ArduinoOTA.handle();
 
-
   Serial.print("Brightness: ");
   Serial.println(brightness);
 
-  for ( int i = 0; i < PixelCount; i++) {
-    strip.SetPixelColor(i, white);
+  if ( CTRLmode == MANUAL) {
+    for ( int i = 0; i < PixelCount; i++) {
+      strip.SetPixelColor(i, white);
+    }
+    strip.SetBrightness(brightness);
+    strip.Show();
   }
-  strip.SetBrightness(brightness);
-  strip.Show();
+
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.print("Connecting wifi ");
+    if (-1 < wifiAutoSelector.scanAndConnect()) {
+      int connectedIndex = wifiAutoSelector.getConnectedIndex();
+      Serial.print("to '");
+      Serial.print(wifiAutoSelector.getSSID(connectedIndex));
+      Serial.println("'. Done.");
+    } else {
+      Serial.println("failed.");
+    }
+  }
+
+  Serial.print("RSSI: ");
+  Serial.println(WiFi.RSSI());
 }
 
 void loop() {
